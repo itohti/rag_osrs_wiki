@@ -62,9 +62,33 @@ def find_ranks(query, data, embeddings, task_ids):
         if data.iloc[idx_num]['task_id'] in task_ids:
             print(f"Task ID: {data.iloc[idx_num]['task_id']} is ranked {ranks[idx].item()} for query '{query}'.")
 
+def build_prompt(query, context):
+    return f"""You answer questions about Old School RuneScape combat achievement tasks.
+
+<instructions>
+1. Answer using only the tasks inside <tasks>. Do not use outside knowledge.
+2. Ignore tasks that are not relevant to the question.
+3. Cite the task_id of every task you mention.
+4. The tasks below are the 20 most relevant out of 655 total, not the full list. If the question asks "how many", which has the most or least, or for a total, you cannot answer it. Say so and return an empty list.
+5. If no task answers the question, say "I don't know" and return an empty list.
+6. Always end your response with one line in this exact format: TASK_IDS: [id, id, ...]
+</instructions>
+
+<example>
+Question: Which boss has the most Perfection tasks?
+Answer: I can only see 20 of the 655 tasks, so I can't count or rank across all of them.
+TASK_IDS: []
+</example>
+
+<tasks>
+{context}
+</tasks>
+
+<question>{query}</question>"""
+
 def evaluate_ranking(query, data, embeddings, eval_type, task_ids):
     context = search(query, data, embeddings, top_k=20)
-    response = ollama.generate(model="llama3.1:8b", options={"temperature": 0.0}, prompt=f"<instructions>Answer from only the provided tasks. If the answer is not contained within the context, sat \'I don't know\'. Keep in mind that you are not given the full context of the database but given the top 20 results. Cite the task_ids for every claim. Ignore task that are not relevant.At the end of your response return the list of task ids in this format: TASK_IDS: []. If there are no relevant tasks, return an empty list.</instructions>\n\n <context>{context}</context>.\n\n This question is this <question>{query}</question>.")
+    response = ollama.generate(model="llama3.1:8b", options={"temperature": 0.0}, prompt=build_prompt(query, context))
     response_text = response["response"]
     print(response_text)
     task_ids_start = response_text.find("TASK_IDS: [")
