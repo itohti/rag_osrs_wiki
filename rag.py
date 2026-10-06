@@ -10,6 +10,7 @@ SPELLBOOK_KEYWORDS = {
     "barrage": "ancient",
     "thrall": "arceuus",
     "arceuus": "arceuus",
+    "demonbane spells": "arceuus"
 }
 
 def load_data(file_path):
@@ -63,14 +64,14 @@ def find_ranks(query, data, embeddings, task_ids):
 
 def evaluate_ranking(query, data, embeddings, eval_type, task_ids):
     context = search(query, data, embeddings, top_k=20)
-    response = ollama.generate(model="llama3.1:8b", options={"temperature": 0.0}, prompt=f"<instructions>Answer from only the provided tasks. If the answer is not contained within the context, sat \'I don't know\'. Cite the task_ids for every claim. Ignore task that are not relevant.At the end of your response return the list of task ids in this format: TASK_IDS: []</instructions>\n\n <context>{context}</context>.\n\n This question is this <question>{query}</question>.")
+    response = ollama.generate(model="llama3.1:8b", options={"temperature": 0.0}, prompt=f"<instructions>Answer from only the provided tasks. If the answer is not contained within the context, sat \'I don't know\'. Cite the task_ids for every claim. Ignore task that are not relevant.At the end of your response return the list of task ids in this format: TASK_IDS: []. If there are no relevant tasks, return an empty list.</instructions>\n\n <context>{context}</context>.\n\n This question is this <question>{query}</question>.")
     response_text = response["response"]
     task_ids_start = response_text.find("TASK_IDS: [")
     task_ids_end = response_text.find("]", task_ids_start)
     extracted_task_ids = response_text[task_ids_start:task_ids_end+1]
 
     extracted_task_ids_list = extracted_task_ids.replace("TASK_IDS: [", "").replace("]", "").split(",")
-    extracted_task_ids_list = [int(task_id.strip()) for task_id in extracted_task_ids_list]
+    extracted_task_ids_list = [int(task_id.strip()) for task_id in extracted_task_ids_list if task_id.strip().isdigit()]
     if eval_type == "exact":
         if set(extracted_task_ids_list).issubset(set(task_ids)) and set(task_ids).issubset(set(extracted_task_ids_list)):
             print(f"Query '{query}' passed the exact match evaluation.")
